@@ -1,1 +1,0 @@
-# Tests for the deepsearcher.loader package 
