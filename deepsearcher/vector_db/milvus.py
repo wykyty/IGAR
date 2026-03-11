@@ -250,6 +250,55 @@ class Milvus(BaseVectorDB):
             log.critical(f"fail to search data, error info: {e}")
             return []
 
+    # 新增：根据id检索数据
+    def get_data_by_ids(
+        self,
+        collection: Optional[str],
+        ids: List[Union[int, str]],
+        *args,
+        **kwargs
+    ) -> List[RetrievalResult]:
+        """
+        根据 ID 列表从 Milvus 集合中快速检索对应的文本和元数据
+
+        Args:
+            collection (Optioinal[str]): 集合名称。如果为None，则使用默认集合
+            ids (List[Union[int, str]]): 主键 ID 列表，DocID
+        """
+        if not collection:
+            collection = self.default_collection
+        if not ids:
+            return []
+        try:
+            # 使用MilvusClient的get方法通过主键直接获取实体
+            res = self.client.get(
+                collection_name=collection,
+                ids=ids,
+                output_fields=["embedding", "text", "reference", "metadata"], # 指定需要返回的字段
+                timeout=10
+            )
+
+            # 将 Milvus 返回的字典格式转换为 RetrievalResult 对象
+            # 注意：get 方法返回的是满足条件的实体列表
+            retrieval_results = []
+            for entity in res:
+                retrieval_results.append(
+                    RetrievalResult(
+                        embedding=entity.get("embedding"),
+                        text=entity.get("text"),
+                        reference=entity.get("reference"),
+                        score=1.0, # ID 匹配通常不涉及相似度分数，默认为满分
+                        metadata=entity.get("metadata")
+                    )
+                )
+            
+            #记录日志
+            log.color_print(f"<db> Fetched {len(retrieval_results)} chunks by IDs from [{collection}] </db>")
+            return retrieval_results
+        except Exception as e:
+            log.error(f"fail to get data by ids, error info: {e}")
+            return []
+
     def list_collections(self, *args, **kwargs) -> List[CollectionInfo]:
         """
         List all collections in the Milvus database.
