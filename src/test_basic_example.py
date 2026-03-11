@@ -1,8 +1,10 @@
 import logging
 import os
+from dotenv import load_dotenv
 
 # 必须在 import deepsearcher 之前或初始化 config 之前设置
-os.environ["OPENAI_API_KEY"] = "sk-tTo3MNJgAsRIvFgyuRCWfUKSVkBpIgBtPZi7yKTGGAmspl5D" 
+load_dotenv()  # 1. 加载 .env 文件
+api_key = os.getenv("OPENAI_API_KEY") # 2. 从环境变量中获取key
 
 from deepsearcher.offline_loading import load_from_local_files
 from deepsearcher.online_query import query
@@ -21,14 +23,14 @@ config = Configuration()  # Customize your config here
 config.set_provider_config("llm", "OpenAI", {
     "model": "gpt-4o-mini",           
     "base_url": "http://123.129.219.111:3000/v1", 
-    "api_key": "sk-tTo3MNJgAsRIvFgyuRCWfUKSVkBpIgBtPZi7yKTGGAmspl5D",
+    "api_key": api_key
 })
 
 # 配置 Embedding
 config.set_provider_config("embedding", "OpenAIEmbedding", {
     "model": "text-embedding-ada-002",
     "base_url": "http://123.129.219.111:3000/v1", 
-    "api_key": "sk-tTo3MNJgAsRIvFgyuRCWfUKSVkBpIgBtPZi7yKTGGAmspl5D",
+    "api_key": api_key
 })
 
 init_config(config=config)
