@@ -9,25 +9,65 @@ from deepsearcher.utils import log
 from deepsearcher.vector_db import RetrievalResult
 from deepsearcher.vector_db.base import BaseVectorDB, deduplicate_results
 
-SUB_QUERY_PROMPT = """To answer this question more comprehensively, please break down the original question into up to four sub-questions. Return as list of str.
-If this is a very simple question and no decomposition is necessary, then keep the only one original question in the python code list.
+# SUB_QUERY_PROMPT = """To answer this question more comprehensively, please break down the original question into up to four sub-questions. Return as list of str.
+# If this is a very simple question and no decomposition is necessary, then keep the only one original question in the python code list.
+
+# Original Question: {original_query}
+
+
+# <EXAMPLE>
+# Example input:
+# "Explain deep learning"
+
+# Example output:
+# [
+#     "What is deep learning?",
+#     "What is the difference between deep learning and machine learning?",
+#     "What is the history of deep learning?"
+# ]
+# </EXAMPLE>
+
+# Provide your response in a python code list of str format:
+# """
+
+# prompt, 原来是生成list of strings
+# 现在让他指令化生成 list of dicts
+SUB_QUERY_PROMPT = """
+To answer this question comprehensively, break down the original question into specific sub-tasks. 
+For each sub-task, you must select the most appropriate "instruction" from the predefined list below and generate a corresponding "query".
+
+### PREDEFINED INSTRUCTIONS:
+1. "Identify and retrieve specific financial performance data or key accounting metrics (e.g., revenue, net loss, R&D expenses) for a specific fiscal period." (Intent: financial_metric)
+2. "Retrieve documents containing vehicle delivery numbers, market share data, or production capacity information." (Intent: delivery_status)
+3. "Find sections describing potential business risks, regulatory challenges, or market uncertainties mentioned in the report." (Intent: risk_factor)
+4. "Locate descriptions of the company's future product roadmap, technology R&D plans (like AD Max/Pro), or long-term strategic visions." (Intent: strategic_goal)
+
+### OUTPUT FORMAT:
+Return a pure Python list of dictionaries. Each dictionary must contain:
+- "instruction": One of the exact strings from the predefined list above.
+- "query": A specific, concise search query to fulfill that sub-task.
 
 Original Question: {original_query}
 
-
 <EXAMPLE>
-Example input:
-"Explain deep learning"
-
-Example output:
-[
-    "What is deep learning?",
-    "What is the difference between deep learning and machine learning?",
-    "What is the history of deep learning?"
+Input: "Analyze Li Auto's 2023 performance including its revenue, car deliveries, and future autonomous driving plans."
+Output: [
+    {{
+        "instruction": "Identify and retrieve specific financial performance data or key accounting metrics (e.g., revenue, net loss, R&D expenses) for a specific fiscal period.",
+        "query": "请查找理想汽车2023年年度收入和净利润的数据。"
+    }},
+    {{
+        "instruction": "Retrieve documents containing vehicle delivery numbers, market share data, or production capacity information.",
+        "query": "请提供理想汽车2023年汽车总交付量的数据。"
+    }},
+    {{
+        "instruction": "Locate descriptions of the company's future product roadmap, technology R&D plans (like AD Max/Pro), or long-term strategic visions.",
+        "query": "请查找理想汽车自动驾驶AD Max Pro的研发路线图。"
+    }}
 ]
 </EXAMPLE>
 
-Provide your response in a python code list of str format:
+Provide your response in pure python code list format:
 """
 
 RERANK_PROMPT = """Based on the query questions and the retrieved chunk, to determine whether the chunk is helpful in answering any of the query question, you can only return "YES" or "NO", without any other information.
@@ -108,20 +148,80 @@ class DeepSearch(RAGAgent):
         )
         self.text_window_splitter = text_window_splitter
 
-    def _generate_sub_queries(self, original_query: str) -> Tuple[List[str], int]:
+    # def _generate_sub_queries(self, original_query: str) -> Tuple[List[str], int]:
+    def _generate_sub_queries(self, original_query: str) -> Tuple[List[dict], int]:  # 指令化生成，改变一下返回类型
         chat_response = self.llm.chat(
             messages=[
                 {"role": "user", "content": SUB_QUERY_PROMPT.format(original_query=original_query)}
             ]
         )
         response_content = self.llm.remove_think(chat_response.content)
+        # 此时 LLM 返回的是 [{'instruct': '...', 'query': '...'}, ...]
         return self.llm.literal_eval(response_content), chat_response.total_tokens
 
-    async def _search_chunks_from_vectordb(self, query: str, sub_queries: List[str]):
+    # async def _search_chunks_from_vectordb(self, query: str, sub_queries: List[str]):
+    #     consume_tokens = 0
+    #     if self.route_collection:
+    #         selected_collections, n_token_route = self.collection_router.invoke(
+    #             query=query, dim=self.embedding_model.dimension
+    #         )
+    #     else:
+    #         selected_collections = self.collection_router.all_collections
+    #         n_token_route = 0
+    #     consume_tokens += n_token_route
+
+    #     all_retrieved_results = []
+    #     query_vector = self.embedding_model.embed_query(query)
+    #     for collection in selected_collections:
+    #         log.color_print(f"<search> Search [{query}] in [{collection}]...  </search>\n")
+    #         retrieved_results = self.vector_db.search_data(
+    #             collection=collection, vector=query_vector, query_text=query
+    #         )
+    #         if not retrieved_results or len(retrieved_results) == 0:
+    #             log.color_print(
+    #                 f"<search> No relevant document chunks found in '{collection}'! </search>\n"
+    #             )
+    #             continue
+    #         accepted_chunk_num = 0
+    #         references = set()
+    #         for retrieved_result in retrieved_results:
+    #             chat_response = self.llm.chat(
+    #                 messages=[
+    #                     {
+    #                         "role": "user",
+    #                         "content": RERANK_PROMPT.format(
+    #                             query=[query] + sub_queries,
+    #                             retrieved_chunk=f"<chunk>{retrieved_result.text}</chunk>",
+    #                         ),
+    #                     }
+    #                 ]
+    #             )
+    #             consume_tokens += chat_response.total_tokens
+    #             response_content = self.llm.remove_think(chat_response.content).strip()
+    #             if "YES" in response_content and "NO" not in response_content:
+    #                 all_retrieved_results.append(retrieved_result)
+    #                 accepted_chunk_num += 1
+    #                 references.add(retrieved_result.reference)
+    #         if accepted_chunk_num > 0:
+    #             log.color_print(
+    #                 f"<search> Accept {accepted_chunk_num} document chunk(s) from references: {list(references)} </search>\n"
+    #             )
+    #         else:
+    #             log.color_print(
+    #                 f"<search> No document chunk accepted from '{collection}'! </search>\n"
+    #             )
+    #     return all_retrieved_results, consume_tokens
+
+    # 修改检索方法，调用GR模型
+    async def _search_chunks_from_vectordb(self, query_item: dict, sub_queries: List[dict]): # 参数变为dict
+        query_text = query_item.get("query")
+        instruction = query_item.get("instruction")
+
+
         consume_tokens = 0
         if self.route_collection:
             selected_collections, n_token_route = self.collection_router.invoke(
-                query=query, dim=self.embedding_model.dimension
+                query=query_text, dim=self.embedding_model.dimension
             )
         else:
             selected_collections = self.collection_router.all_collections
@@ -129,11 +229,14 @@ class DeepSearch(RAGAgent):
         consume_tokens += n_token_route
 
         all_retrieved_results = []
-        query_vector = self.embedding_model.embed_query(query)
+        query_vector = self.embedding_model.embed_query(query_text)
         for collection in selected_collections:
-            log.color_print(f"<search> Search [{query}] in [{collection}]...  </search>\n")
+            log.color_print(f"<search> Search [{query_text}] in [{collection}]...  </search>\n")
             retrieved_results = self.vector_db.search_data(
-                collection=collection, vector=query_vector, query_text=query
+                collection=collection, 
+                vector=query_vector,  # 修改，生成式检索不需要向量
+                query_text=query_text,
+                instruct=instruction  # 新增
             )
             if not retrieved_results or len(retrieved_results) == 0:
                 log.color_print(
@@ -148,7 +251,7 @@ class DeepSearch(RAGAgent):
                         {
                             "role": "user",
                             "content": RERANK_PROMPT.format(
-                                query=[query] + sub_queries,
+                                query=[query_text] + sub_queries,
                                 retrieved_chunk=f"<chunk>{retrieved_result.text}</chunk>",
                             ),
                         }
@@ -231,10 +334,17 @@ class DeepSearch(RAGAgent):
             search_res_from_internet = []  # TODO
 
             # Create all search tasks
+            # search_tasks = [
+            #     self._search_chunks_from_vectordb(query, sub_gap_queries)
+            #     for query in sub_gap_queries
+            # ]
+            # 修改
             search_tasks = [
-                self._search_chunks_from_vectordb(query, sub_gap_queries)
-                for query in sub_gap_queries
+                # 这里的 query 以前是 str，现在是 dict {'instruct':..., 'query':...}
+                self._search_chunks_from_vectordb(query_item, sub_gap_queries)
+                for query_item in sub_gap_queries 
             ]
+            # ...
             # Execute all tasks in parallel and wait for results
             search_results = await asyncio.gather(*search_tasks)
             # Merge all results

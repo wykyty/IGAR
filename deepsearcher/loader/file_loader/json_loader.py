@@ -14,7 +14,7 @@ class JsonFileLoader(BaseLoader):
     and converting each entry into Document objects for further processing.
     """
 
-    def __init__(self, text_key: str):
+    def __init__(self, text_key: str = "content", id_key: str = "reference"):
         """
         Initialize the JsonFileLoader.
 
@@ -22,6 +22,8 @@ class JsonFileLoader(BaseLoader):
             text_key: The key in the JSON data that contains the text content to be extracted.
         """
         self.text_key = text_key
+        self.id_key = id_key
+
 
     def load_file(self, file_path: str) -> List[Document]:
         """
