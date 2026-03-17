@@ -93,54 +93,60 @@
 #         ]
 
 
-import asyncio
-import aiohttp
 import numpy as np
+import requests
 from typing import List, Optional, Union
 from deepsearcher.vector_db.base import RetrievalResult
 from deepsearcher.vector_db.milvus import Milvus
+from deepsearcher.utils import log
 
 class GenerativeRetrievalDB(Milvus):
     def __init__(self, api_url: str, *args, **kwargs):
-        # 初始化父类 Milvus 这里的 args/kwargs 包含连接 Milvus 的参数
+        """
+        初始化生成式检索数据库。
+        :param api_url: 生成式模型部署接口
+        :param args/kwargs: 传递给 Milvus 基类的参数
+        """
         super().__init__(*args, **kwargs)
-        self.api_url = api_url # 例如 "http://localhost:8001/v1/completions"
-        self.concurrency = 5   # 检索时的并发控制
-        
-    async def _request_docids(self, instruct: str, query: str, top_k: int) -> List[str]:
-        """发起异步 HTTP 请求获取 DocID"""
-        prompt = f"Instruct: {instruct}\nQuery: {query}\nDocID:"
+        self.api_url = api_url
+        self.session = requests.Session()
+
+    def _request_docids_sync(self, instruct: str, query: str, top_k: int) -> List[str]:
+        """使用 requests 发送同步 HTTP 请求获取 DocID"""
+        prompt = f"Instruct: {instruct}\nQuery: {query}\n"
         
         # 针对生成式检索优化的 Payload
         payload = {
             "prompt": prompt,
-            "temperature": 0.0, # 检索通常需要确定性，设为 0
+            "temperature": 0.0,      # 检索需要确定性
             "max_tokens": 32,
-            "n": top_k,         # 让后端一次生成多个候选
-            "stop": ["\n", " "],
-            # 如果后端支持 beam search，可以加入以下参数
-            # "use_beam_search": True,
-            # "best_of": top_k
+            "n": top_k,              # 一次请求返回 top_k 个候选结果
+            "stop": ["\n"],     # 遇到换行停止生成
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.api_url, json=payload, timeout=30) as resp:
-                    if resp.status != 200:
-                        print(f"Error from Inference Server: {resp.status}")
-                        return []
-                    
-                    data = await resp.json()
-                    # 兼容 OpenAI 格式和 vLLM 格式
-                    doc_ids = []
-                    choices = data.get("choices", [])
-                    for choice in choices:
-                        text = choice.get("text", "").strip()
-                        if text:
-                            doc_ids.append(text)
-                    return list(set(doc_ids))
+            # 使用同步的 post 请求
+            response = self.session.post(self.api_url, json=payload, timeout=30)
+            
+            if response.status_code != 200:
+                print(f"Error from Inference Server: {response.status_code} - {response.text}")
+                return []
+            
+            data = response.json()
+            doc_ids = []
+            
+            # 解析 OpenAI/vLLM 兼容格式
+            choices = data.get("choices", [])
+            for choice in choices:
+                text = choice.get("text", "").strip()
+                if text:
+                    doc_ids.append(text)
+            
+            # 去重并返回
+            return list(set(doc_ids))
+            
         except Exception as e:
-            print(f"Request failed: {e}")
+            print(f"GR Request failed: {e}")
             return []
 
     def search_data(
@@ -153,24 +159,38 @@ class GenerativeRetrievalDB(Milvus):
         *args, 
         **kwargs
     ) -> List[RetrievalResult]:
+        """
+        核心检索方法：
+        1. 调用 LLM 生成候选 DocIDs
+        2. 到 Milvus 中通过 Scalar Query 捞取具体内容
+        """
         
+        log.color_print(f"Generative retrieval......")
+
         if not collection:
             collection = self.default_collection
-        
-        # 1. 运行异步请求获取 DocIDs
-        # 注意：由于 search_data 是同步方法，这里需要用 asyncio.run
+
+
+        # 1. 运行同步请求获取 DocIDs
+        # 此处不再使用 asyncio.run，完美避开 Event Loop 冲突
         safe_instruct = instruct if instruct else "Retrieve relevant documents for the query."
-        target_doc_ids = asyncio.run(self._request_docids(safe_instruct, query_text, top_k))
+        target_doc_ids = self._request_docids_sync(safe_instruct, query_text, top_k)
         
         if not target_doc_ids:
             return []
         
-        # 2. Milvus 标量查询
-        # 将生成的文本 ID 列表转换为 Milvus 的查询表达式
+        
+        log.color_print(f"target_doc_ids:")
+
+        
+        # 2. Milvus 标量查询 (Scalar Query)
+        # 确保字符串 ID 被正确包裹在引号内
         formatted_ids = [f"'{i}'" for i in target_doc_ids]
+        # 表达式形如: reference in ['doc_1', 'doc_2']
         expr = f"reference in [{', '.join(formatted_ids)}]" 
         
         try:
+            # Milvus 的 Python SDK (pymilvus) 本身就是同步阻塞调用的
             res = self.client.query(
                 collection_name=collection,
                 filter=expr,
@@ -181,14 +201,16 @@ class GenerativeRetrievalDB(Milvus):
             print(f"Milvus query failed: {e}")
             return []
 
-        # 3. 封装结果
-        return [
-            RetrievalResult(
-                embedding=[], 
-                text=item["text"],
-                reference=item["reference"],
-                score=1.0, 
-                metadata=item.get("metadata", {}),
+        # 3. 封装为 DeepSearcher 定义的 RetrievalResult 格式
+        results = []
+        for item in res:
+            results.append(
+                RetrievalResult(
+                    embedding=[], # GR 无向量
+                    text=item.get("text", ""),
+                    reference=item.get("reference", ""),
+                    score=1.0,    # 生成式检索通常不提供距离分，默认 1.0
+                    metadata=item.get("metadata", {}),
+                )
             )
-            for item in res
-        ]
+        return results

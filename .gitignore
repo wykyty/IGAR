@@ -198,6 +198,7 @@ pyrightconfig.json
 
 *.db
 
-# data
+# my
 data/
 output/
+model/

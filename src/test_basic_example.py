@@ -13,8 +13,8 @@ from deepsearcher.configuration import Configuration, init_config
 httpx_logger = logging.getLogger("httpx")  # disable openai's logger output
 httpx_logger.setLevel(logging.WARNING)
 
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-workspace = "/home/aizoo/data/workspace/deep-searcher"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+workspace = os.path.dirname(current_dir)
 
 config = Configuration()  # Customize your config here
 

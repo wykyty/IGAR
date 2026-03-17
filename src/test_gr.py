@@ -15,17 +15,10 @@ httpx_logger = logging.getLogger("httpx")  # disable openai's logger output
 httpx_logger.setLevel(logging.WARNING)
 
 # current_dir = os.path.dirname(os.path.abspath(__file__))
-workspace = "/home/aizoo/data/workspace/deep-searcher"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+workspace = os.path.dirname(current_dir)
 
 config = Configuration()  # Customize your config here
-
-# 修改DB
-my_db = GenerativeRetrievalDB(
-    gr_model_path="/home/aizoo/data/workspace/LLaMA-Factory/saves/merged/qwen2.5-1.5b-sft-merged",
-    uri="./milvus.db", 
-    token="root:Milvus", 
-    default_collection="test_gr_collection"
-)
 
 # 配置 LLM
 config.set_provider_config("llm", "OpenAI", {
@@ -45,6 +38,14 @@ config.set_provider_config("embedding", "OpenAIEmbedding", {
 config.set_provider_config("file_loader", "JsonFileLoader", {
     "text_key": "content",
     "id_key": "reference"
+})
+
+# 配置 VectorDB
+config.set_provider_config("vector_db", "GenerativeRetrievalDB", {
+    "api_url": "http://localhost:8001/v1/completions",
+    "uri": "./milvus.db", 
+    "token":"root:Milvus", 
+    "default_collection": "test_gr_collection"
 })
 
 init_config(config=config)
@@ -123,7 +124,7 @@ def append_query_results(filepath: str, answer: str, results: list, tokens: int)
     print(f"✅ 数据已追加，当前共有 {len(existing_data)} 条记录。")
 
 # 使用方法
-save_filename = "/home/aizoo/data/workspace/deep-searcher/src/output/history_records.json"
+save_filename = "/data/wyh/IGAR/output/history_records.json"
 append_query_results(save_filename, final_answer, all_retrieved_results, consumed_token)
 
 
