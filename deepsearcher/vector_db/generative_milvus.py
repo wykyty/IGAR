@@ -110,43 +110,42 @@ class GenerativeRetrievalDB(Milvus):
         super().__init__(*args, **kwargs)
         self.api_url = api_url
         self.session = requests.Session()
+        log.color_print("初始化 GenerativeRetrievalDB 成功。")
 
     def _request_docids_sync(self, instruct: str, query: str, top_k: int) -> List[str]:
         """使用 requests 发送同步 HTTP 请求获取 DocID"""
         prompt = f"Instruct: {instruct}\nQuery: {query}\n"
         
-        # 针对生成式检索优化的 Payload
         payload = {
             "prompt": prompt,
-            "temperature": 0.0,      # 检索需要确定性
+            "temperature": 0.3,      # 检索需要确定性
             "max_tokens": 32,
-            "n": top_k,              # 一次请求返回 top_k 个候选结果
+            "n": top_k,         
             "stop": ["\n"],     # 遇到换行停止生成
         }
 
         try:
-            # 使用同步的 post 请求
+            log.color_print(f"正在请求生成模型 (Generative Retrieval)...", color="blue")
             response = self.session.post(self.api_url, json=payload, timeout=30)
             
             if response.status_code != 200:
                 print(f"Error from Inference Server: {response.status_code} - {response.text}")
+                log.color_print(f"推理服务器错误: {response.status_code}", color="red")
                 return []
             
             data = response.json()
             doc_ids = []
-            
-            # 解析 OpenAI/vLLM 兼容格式
-            choices = data.get("choices", [])
+            choices = data.get("choices", []) # 解析 OpenAI/vLLM 兼容格式
             for choice in choices:
                 text = choice.get("text", "").strip()
                 if text:
                     doc_ids.append(text)
             
-            # 去重并返回
             return list(set(doc_ids))
             
         except Exception as e:
-            print(f"GR Request failed: {e}")
+            # print(f"GR Request failed: {e}")
+            log.color_print(f"请求失败: {e}", color="red")
             return []
 
     def search_data(
@@ -164,31 +163,28 @@ class GenerativeRetrievalDB(Milvus):
         1. 调用 LLM 生成候选 DocIDs
         2. 到 Milvus 中通过 Scalar Query 捞取具体内容
         """
-        
-        log.color_print(f"Generative retrieval......")
 
         if not collection:
             collection = self.default_collection
 
-
-        # 1. 运行同步请求获取 DocIDs
-        # 此处不再使用 asyncio.run，完美避开 Event Loop 冲突
+        # 1. 生成 DocIDs
         safe_instruct = instruct if instruct else "Retrieve relevant documents for the query."
+        log.color_print(f"\n[STEP 1] 生成模型推理", color="cyan")
+        log.color_print(f"Query: {query_text}", color="white")
+
         target_doc_ids = self._request_docids_sync(safe_instruct, query_text, top_k)
-        
+        # 可视化输出生成的 DocIDs
+        log.color_print(f">>> 模型生成的候选 DocIDs: {target_doc_ids}", color="green")
+
         if not target_doc_ids:
             return []
         
-        
-        log.color_print(f"target_doc_ids:")
+        # 2. 检索阶段：Milvus 标量查询 (Scalar Query)
+        log.color_print(f"\n[STEP 2] 检索 Milvus 标量数据", color="cyan")
+        formatted_ids = [f"'{i}'" for i in target_doc_ids]  # 确保字符串 ID 被正确包裹在引号内
+        expr = f"reference in [{', '.join(formatted_ids)}]"     # 表达式形如: reference in ['doc_1', 'doc_2']
+        log.color_print(f"Filter Expression: {expr}", color="blue")
 
-        
-        # 2. Milvus 标量查询 (Scalar Query)
-        # 确保字符串 ID 被正确包裹在引号内
-        formatted_ids = [f"'{i}'" for i in target_doc_ids]
-        # 表达式形如: reference in ['doc_1', 'doc_2']
-        expr = f"reference in [{', '.join(formatted_ids)}]" 
-        
         try:
             # Milvus 的 Python SDK (pymilvus) 本身就是同步阻塞调用的
             res = self.client.query(
@@ -198,12 +194,19 @@ class GenerativeRetrievalDB(Milvus):
                 limit=top_k
             )
         except Exception as e:
-            print(f"Milvus query failed: {e}")
+            # print(f"Milvus query failed: {e}")
+            log.color_print(f"Milvus 查询失败: {e}", color="red")
             return []
 
-        # 3. 封装为 DeepSearcher 定义的 RetrievalResult 格式
+        # 3. 封装为 RetrievalResult 格式
+        log.color_print(f"\n[STEP 3] 检索结果汇总 (Found {len(res)} docs):", color="cyan")
         results = []
-        for item in res:
+        for i, item in enumerate(res):
+            ref = item.get("reference", "N/A")
+            text_snippet = item.get("text", "")[:60].replace('\n', ' ')
+            
+            # 打印每一个检索到的结果
+            log.color_print(f" Result [{i+1}] | ID: {ref} | Content: {text_snippet}...", color="white")
             results.append(
                 RetrievalResult(
                     embedding=[], # GR 无向量
@@ -213,4 +216,7 @@ class GenerativeRetrievalDB(Milvus):
                     metadata=item.get("metadata", {}),
                 )
             )
+        if not results:
+            log.color_print("Milvus 中未找到对应生成的 DocID。", color="yellow")
+        
         return results

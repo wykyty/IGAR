@@ -22,17 +22,19 @@ config = Configuration()  # Customize your config here
 
 # 配置 LLM
 config.set_provider_config("llm", "OpenAI", {
-    "model": "gpt-4o-mini",           
-    "base_url": "http://123.129.219.111:3000/v1", 
-    "api_key": api_key
+    "model": "llama3-8B",           
+    "base_url": "http://localhost:8000/v1", 
+    "api_key": "LOCAL"
 })
 
 # 配置 Embedding
-config.set_provider_config("embedding", "OpenAIEmbedding", {
-    "model": "text-embedding-ada-002",
-    "base_url": "http://123.129.219.111:3000/v1", 
-    "api_key": api_key
-})
+# config.set_provider_config("embedding", "OpenAIEmbedding", {
+#     "model": "text-embedding-ada-002",
+#     "base_url": "http://123.129.219.111:3000/v1", 
+#     "api_key": api_key
+# })
+# config.set_provider_config("embedding", "MilvusEmbedding", {"model": "BAAI/bge-base-en-v1.5"})
+config.set_provider_config("embedding", "FastEmbedEmbedding", {"model": "BAAI/bge-base-en-v1.5"})
 
 # 配置 FileLoader
 config.set_provider_config("file_loader", "JsonFileLoader", {
@@ -44,8 +46,9 @@ config.set_provider_config("file_loader", "JsonFileLoader", {
 config.set_provider_config("vector_db", "GenerativeRetrievalDB", {
     "api_url": "http://localhost:8001/v1/completions",
     "uri": "./milvus.db", 
+    "dim": 768,
     "token":"root:Milvus", 
-    "default_collection": "test_gr_collection"
+    "default_collection": "test_gr_collection_768"
 })
 
 init_config(config=config)
