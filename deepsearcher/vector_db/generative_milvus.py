@@ -101,15 +101,17 @@ from deepsearcher.vector_db.milvus import Milvus
 from deepsearcher.utils import log
 
 class GenerativeRetrievalDB(Milvus):
-    def __init__(self, api_url: str, *args, **kwargs):
+    def __init__(self, api_url: str, valid_doc_ids: List[str] = None, *args, **kwargs):
         """
         初始化生成式检索数据库。
         :param api_url: 生成式模型部署接口
+        :param valid_doc_ids: 数据库中所有合法DocID的全量列表（用于受限解码）
         :param args/kwargs: 传递给 Milvus 基类的参数
         """
         super().__init__(*args, **kwargs)
         self.api_url = api_url
         self.session = requests.Session()
+        self.valid_doc_ids = valid_doc_ids or []
         log.color_print("初始化 GenerativeRetrievalDB 成功。")
 
     def _request_docids_sync(self, instruct: str, query: str, top_k: int) -> List[str]:
@@ -118,11 +120,15 @@ class GenerativeRetrievalDB(Milvus):
         
         payload = {
             "prompt": prompt,
-            "temperature": 0.3,      # 检索需要确定性
+            "temperature": 0.5,  
             "max_tokens": 32,
             "n": top_k,         
-            "stop": ["\n"],     # 遇到换行停止生成
+            "stop": ["\n"],  
         }
+
+        # 受限解码
+        if self.valid_doc_ids:
+            payload["guided_choice"] = self.valid_doc_ids
 
         try:
             log.color_print(f"正在请求生成模型 (Generative Retrieval)...", color="blue")
@@ -135,7 +141,7 @@ class GenerativeRetrievalDB(Milvus):
             
             data = response.json()
             doc_ids = []
-            choices = data.get("choices", []) # 解析 OpenAI/vLLM 兼容格式
+            choices = data.get("choices", []) 
             for choice in choices:
                 text = choice.get("text", "").strip()
                 if text:
@@ -203,10 +209,11 @@ class GenerativeRetrievalDB(Milvus):
         results = []
         for i, item in enumerate(res):
             ref = item.get("reference", "N/A")
-            text_snippet = item.get("text", "")[:60].replace('\n', ' ')
+            # text_snippet = item.get("text", "")[:60].replace('\n', ' ')
+            text = item.get("text", "").replace('\n', ' ')  # 改为输出text全文
             
             # 打印每一个检索到的结果
-            log.color_print(f" Result [{i+1}] | ID: {ref} | Content: {text_snippet}...", color="white")
+            log.color_print(f" Result [{i+1}] | ID: {ref} | Content: {text}...", color="white")
             results.append(
                 RetrievalResult(
                     embedding=[], # GR 无向量

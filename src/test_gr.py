@@ -10,6 +10,7 @@ from deepsearcher.offline_loading import load_from_local_files
 from deepsearcher.online_query import query
 from deepsearcher.configuration import Configuration, init_config
 from deepsearcher.vector_db.generative_milvus import GenerativeRetrievalDB
+from .scripts.load_docids import load_valid_docids_from_jsonl
 
 httpx_logger = logging.getLogger("httpx")  # disable openai's logger output
 httpx_logger.setLevel(logging.WARNING)
@@ -17,6 +18,8 @@ httpx_logger.setLevel(logging.WARNING)
 # current_dir = os.path.dirname(os.path.abspath(__file__))
 current_dir = os.path.dirname(os.path.abspath(__file__))
 workspace = os.path.dirname(current_dir)
+data_path = os.path.join(workspace, "data/corpus_with_docidsv2.jsonl")
+# data_path = "/data/wyh/IGAR/examples/data/2wikimultihopqa_corpus.json"
 
 config = Configuration()  # Customize your config here
 
@@ -38,18 +41,32 @@ config.set_provider_config("embedding", "FastEmbedEmbedding", {"model": "BAAI/bg
 
 # 配置 FileLoader
 config.set_provider_config("file_loader", "JsonFileLoader", {
-    "text_key": "content",
-    "id_key": "reference"
+    "text_key": "content", #"content","text"
+    "id_key": "semantic_docid"  #"reference"."title"
 })
 
 # 配置 VectorDB
+valid_ids = load_valid_docids_from_jsonl(data_path)
+
+new_valid_ids = [s.replace(" ", "-") for s in valid_ids]
+
+# print(f"{len(valid_ids)} : len valid_ids")
+# for ids in new_valid_ids:
+#     print(f"{ids}\n") 
+
 config.set_provider_config("vector_db", "GenerativeRetrievalDB", {
     "api_url": "http://localhost:8001/v1/completions",
+    "valid_doc_ids": new_valid_ids,
     "uri": "./milvus.db", 
     "dim": 768,
     "token":"root:Milvus", 
-    "default_collection": "test_gr_collection_768"
+    "default_collection": "deep"
 })
+
+# config.set_provider_config("vector_db", "Milvus", {
+#     "uri": "./milvus.db",
+#     "dim": 768
+# })
 
 init_config(config=config)
 
@@ -62,13 +79,14 @@ init_config(config=config)
 # )
 
 load_from_local_files(
-    paths_or_directory=os.path.join(workspace, "data/corpus_with_docids.jsonl"),
-    collection_name="LiAuto",
-    collection_description="Lixiang2023 doc",
+    paths_or_directory=data_path,
+    collection_name="LiLiLi",
+    collection_description="Li auto",
 )
 
-# question = "Write a report comparing Milvus with other vector databases."
-question = "Write a report comparing Li Auto's vehicle technology comparing with other vehicle manufacturers."
+question = "Write a report comparing Milvus with other vector databases."
+# question = "Write a report comparing Li Auto's vehicle technology comparing with other vehicle manufacturers."
+# question = "When did Lothair Ii's mother die?"
 
 final_answer, all_retrieved_results, consumed_token = query(question, max_iter=1)
 print(f"Consumed tokens: {consumed_token}")

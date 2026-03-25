@@ -220,14 +220,14 @@ def init_config(config: Configuration):
                 route_collection=True,
                 text_window_splitter=True,
             ),
-            ChainOfRAG(
-                llm=llm,
-                embedding_model=embedding_model,
-                vector_db=vector_db,
-                max_iter=config.query_settings["max_iter"],
-                route_collection=True,
-                text_window_splitter=True,
-            ),
+            # ChainOfRAG(
+            #     llm=llm,
+            #     embedding_model=embedding_model,
+            #     vector_db=vector_db,
+            #     max_iter=config.query_settings["max_iter"],
+            #     route_collection=True,
+            #     text_window_splitter=True,
+            # ),
         ],
     )
     naive_rag = NaiveRAG(

@@ -1,5 +1,5 @@
 MODEL_PATH="/data/wyh/IGAR/model/qwen2.5-1.5b-sft-merged"
-GPU_IDS="4"
+GPU_IDS="2"
 PORT=8001
 LOG_FILE="vllm_server.log"
 
@@ -9,4 +9,4 @@ CUDA_VISIBLE_DEVICES=$GPU_IDS python -m vllm.entrypoints.openai.api_server \
     --tensor-parallel-size 1 \
     --port $PORT \
     --max-model-len 8192 \
-    --gpu-memory-utilization 0.9 > $LOG_FILE 2>&1 &
+    --gpu-memory-utilization 0.9 

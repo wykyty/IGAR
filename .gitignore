@@ -202,3 +202,4 @@ pyrightconfig.json
 data/
 output/
 model/
+wandb/

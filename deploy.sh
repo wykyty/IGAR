@@ -1,5 +1,5 @@
 MODEL_PATH="/data/wyh/model/Meta-Llama-3-8B-Instruct"
-GPU_IDS="3,4"
+GPU_IDS="4"
 TP_SIZE=1
 SERVED_MODEL_NAME="llama3-8B"
 PORT=8000

@@ -100,7 +100,9 @@ echo "任务开始，输出将保存至: ${DIR_NAME}/output.txt"
 # 4. 运行 Python 脚本并重定向
 # >  会将标准输出 (stdout) 保存到文件
 # 2>&1 会将错误信息 (stderr) 也一并保存到同一个文件
-python src/test_gr.py 2>&1 | tee "${DIR_NAME}/output.txt"
+# python src/test_gr.py 2>&1 | tee "${DIR_NAME}/output.txt"
+export PYTHONPATH="/data/wyh/IGAR:$PYTHONPATH"
+python -m src.test_gr 2>&1 | tee "${DIR_NAME}/output.txt"
 
 echo "任务完成。日志已记录。"
 EXIT_CODE=$?

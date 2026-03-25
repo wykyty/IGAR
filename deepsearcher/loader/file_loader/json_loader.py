@@ -42,7 +42,12 @@ class JsonFileLoader(BaseLoader):
         documents = []
         for data_dict in data_list:
             page_content = data_dict.pop(self.text_key)
-            data_dict.update({"reference": file_path})
+
+            # reference ==> DocID
+            # data_dict.update({"reference": file_path})
+            reference = data_dict[self.id_key]
+            data_dict.update({"reference": reference})
+            
             document = Document(page_content=page_content, metadata=data_dict)
             documents.append(document)
         return documents
