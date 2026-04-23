@@ -12,81 +12,51 @@ from transformers import (
 )
 
 def train_generative_retrieval():
-    os.environ["WANDB_PROJECT"] = "generative-retrieval-t5-base" 
-    wandb.init(name="t5-base-gr") 
+    os.environ["WANDB_PROJECT"] = "generative-retrieval-t5-large-irlab-slurm" 
+    wandb.init(name="t5-large-gr") 
 
-    model_name = "t5_base"  
-    # data_file = "./data/seq2seq_indexing_data.jsonl" 
-    data_file = "./data/seq2seq_train_data.jsonl" 
-    output_dir = "./model/gr_t5_base_model_2"
+    model_name = "/labmount/public/models/google/google-t5/t5-large"  
+    train_file = "./data/t5_train.jsonl" 
+    dev_file = "./data/t5_dev.jsonl"
+    output_dir = "./model/t5_large_gr"
     
     print("1. 加载 Tokenizer 和 Model...")
     tokenizer = T5Tokenizer.from_pretrained(model_name)
     model = T5ForConditionalGeneration.from_pretrained(model_name)
 
     print("2. 加载数据集...")
-    dataset = load_dataset("json", data_files=data_file, split="train")
-    dataset = dataset.train_test_split(test_size=0.05, seed=42)
-    train_dataset = dataset["train"]
-    eval_dataset = dataset["test"]
+    train_dataset = load_dataset("json", data_files={"train": train_file})["train"]
+    eval_dataset = load_dataset("json", data_files={"eval": dev_file})["eval"]
 
     print("3. 数据预处理 (Tokenization)...")
     def preprocess_function(examples):
         inputs = examples["input_text"]
+        outputs = examples["output_text"]
         model_inputs = tokenizer(inputs, max_length=128, truncation=True)
-        labels = tokenizer(text_target=examples["target_text"], max_length=16, truncation=True)
+        labels = tokenizer(outputs, max_length=16, truncation=True)
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
     train_tokenized = train_dataset.map(preprocess_function, batched=True, remove_columns=train_dataset.column_names)
     eval_tokenized = eval_dataset.map(preprocess_function, batched=True, remove_columns=eval_dataset.column_names)
 
-    # --- 核心新增：计算 Exact Match ---
-    def compute_metrics(eval_preds):
-        preds, labels = eval_preds
-        
-        # 1. 处理预测结果：如果是 tuple，取第一个元素
-        if isinstance(preds, tuple):
-            preds = preds[0]
-            
-        # 2. 将 -100 替换回 pad_token_id，否则 tokenizer 无法 decode
-        preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
-        labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-
-        # 3. 将 token IDs 解码回字符串形式的 docid
-        decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-        # 去除首尾空格，防止因为空格导致匹配失败
-        decoded_preds = [pred.strip() for pred in decoded_preds]
-        decoded_labels = [label.strip() for label in decoded_labels]
-
-        # 4. 计算 Exact Match (EM)
-        # 只有当生成的 docid 和真实的 docid 完全一致时，才算正确 (1)，否则为错 (0)
-        exact_matches = [
-            1 if pred == label else 0 
-            for pred, label in zip(decoded_preds, decoded_labels)
-        ]
-        
-        em_score = sum(exact_matches) / len(exact_matches)
-
-        # 返回的字典会被自动记录到 WandB 中
-        return {"exact_match": em_score}
-
     print("4. 配置训练参数...")
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
-        eval_strategy="epoch",  # 每个 epoch 结束时执行 compute_metrics
-        learning_rate=3e-4,          
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
+        eval_strategy="epoch",  
+        save_strategy="epoch",        
+        learning_rate=3e-4,             # 【关键修改 2】大模型通常建议稍微调低学习率，比如从 3e-4 降到 1e-4
+        per_device_train_batch_size=8,  # 【关键修改 3】降低单卡 batch_size 防止 OOM
+        per_device_eval_batch_size=8,
+        gradient_accumulation_steps=4,  # 【关键修改 4】梯度累积：8 * 4 = 32，等效保持 32 的 global batch size
+        gradient_checkpointing=True,    # 【关键修改 5】开启梯度检查点，用时间换空间，省下大量显存
         weight_decay=0.01,
         save_total_limit=3,          
-        num_train_epochs=5,          
-        predict_with_generate=True,   # 必须为 True，否则 eval_preds 里不是生成的 tokens
-        fp16=torch.cuda.is_available(), 
+        num_train_epochs=30,          
+        bf16=torch.cuda.is_available(), # 4090 必须开 bf16
         logging_steps=10,            
-        report_to="wandb",           
+        report_to="wandb", 
+        ddp_find_unused_parameters=False,
     )
 
     data_collator = DataCollatorForSeq2Seq(tokenizer, model=model, label_pad_token_id=-100)
@@ -98,8 +68,7 @@ def train_generative_retrieval():
         train_dataset=train_tokenized,
         eval_dataset=eval_tokenized,
         tokenizer=tokenizer,
-        data_collator=data_collator,
-        compute_metrics=compute_metrics # 注入评测函数
+        data_collator=data_collator
     )
 
     trainer.train()
