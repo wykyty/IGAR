@@ -10,7 +10,7 @@ from deepsearcher.offline_loading import load_from_local_files
 from deepsearcher.online_query import query
 from deepsearcher.configuration import Configuration, init_config
 from deepsearcher.vector_db.generative_milvus import GenerativeRetrievalDB
-from .scripts.load_docids import load_valid_docids_from_jsonl
+from .utils import load_valid_docids
 
 httpx_logger = logging.getLogger("httpx")  # disable openai's logger output
 httpx_logger.setLevel(logging.WARNING)
@@ -46,7 +46,7 @@ config.set_provider_config("file_loader", "JsonFileLoader", {
 })
 
 # 配置 VectorDB
-valid_ids = load_valid_docids_from_jsonl(data_path)
+valid_ids = load_valid_docids(data_path)
 
 new_valid_ids = [s.replace(" ", "-") for s in valid_ids]
 

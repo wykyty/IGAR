@@ -1,5 +1,5 @@
-MODEL_PATH="/data/wyh/model/Meta-Llama-3-8B-Instruct"
-GPU_IDS="4"
+MODEL_PATH="/home/aizoo/data/workspace/wangyikang/models/Meta-Llama-3-8B-Instruct"
+GPU_IDS="0"
 TP_SIZE=1
 SERVED_MODEL_NAME="llama3-8B"
 PORT=8000
@@ -19,7 +19,7 @@ CUDA_VISIBLE_DEVICES=$GPU_IDS python -m vllm.entrypoints.openai.api_server \
     --tensor-parallel-size $TP_SIZE \
     --port $PORT \
     --max-model-len 8192 \
-    --gpu-memory-utilization 0.9 \
+    --gpu-memory-utilization 0.4 \
     --dtype auto \
     --trust-remote-code
 

@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-def load_valid_docids_from_jsonl(file_path: str) -> List[str]:
+def load_valid_docids(file_path: str) -> List[str]:
     """
     从 JSONL 文件中提取所有的 semantic_docid
     """

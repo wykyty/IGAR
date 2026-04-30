@@ -3,7 +3,7 @@ from typing import Literal
 
 import yaml
 
-from deepsearcher.agent import ChainOfRAG, DeepSearch, NaiveRAG
+from deepsearcher.agent import ChainOfRAG, DeepSearch, NaiveRAG, SimpleSearch
 from deepsearcher.agent.rag_router import RAGRouter
 from deepsearcher.embedding.base import BaseEmbedding
 from deepsearcher.llm.base import BaseLLM
@@ -180,6 +180,8 @@ file_loader: BaseLoader = None
 vector_db: BaseVectorDB = None
 web_crawler: BaseCrawler = None
 default_searcher: RAGRouter = None
+deep_searcher: DeepSearch = None
+simple_searcher: SimpleSearch = None
 naive_rag: NaiveRAG = None
 
 
@@ -201,6 +203,8 @@ def init_config(config: Configuration):
         vector_db, \
         web_crawler, \
         default_searcher, \
+        deep_searcher, \
+        simple_searcher, \
         naive_rag
     module_factory = ModuleFactory(config)
     llm = module_factory.create_llm()
@@ -229,6 +233,21 @@ def init_config(config: Configuration):
             #     text_window_splitter=True,
             # ),
         ],
+    )
+    deep_searcher = DeepSearch(
+        llm=llm,
+        embedding_model=embedding_model,
+        vector_db=vector_db,
+        max_iter=config.query_settings["max_iter"],
+        route_collection=True,
+        text_window_splitter=True,
+    )
+    simple_searcher = SimpleSearch(
+        llm=llm,
+        embedding_model=embedding_model,
+        vector_db=vector_db,
+        route_collection=True,
+        text_window_splitter=True,
     )
     naive_rag = NaiveRAG(
         llm=llm,
