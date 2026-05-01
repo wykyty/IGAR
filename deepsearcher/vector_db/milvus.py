@@ -224,7 +224,7 @@ class Milvus(BaseVectorDB):
                     ranker=RRFRanker(),
                     limit=top_k,
                     output_fields=["embedding", "text", "reference", "metadata"],
-                    timeout=10,
+                    timeout=60,  # 修改，增加时间
                 )
             else:
                 search_results = self.client.search(
@@ -232,7 +232,7 @@ class Milvus(BaseVectorDB):
                     data=[vector],
                     limit=top_k,
                     output_fields=["embedding", "text", "reference", "metadata"],
-                    timeout=10,
+                    timeout=60,
                 )
 
             return [

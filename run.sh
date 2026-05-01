@@ -15,6 +15,6 @@ mkdir -p "$DIR_NAME"
 echo "任务开始，输出将保存至: ${DIR_NAME}/output.txt"
 
 # 04. 运行 Python 脚本并重定向
-python src/test.py --rag --question "When did Lothair Ii's mother die?" --reload-data 2>&1 | tee "${DIR_NAME}/output.txt"
+python src/test.py --rag --question "When did Lothair Ii's mother die?" 2>&1 | tee "${DIR_NAME}/output.txt"
 
 echo "任务完成。日志已记录。"

@@ -93,4 +93,4 @@ def naive_rag_query(
     """
     naive_rag = configuration.naive_rag
     answer, retrieved_results, consume_tokens = naive_rag.query(query)
-    return answer, retrieved_results
+    return answer, retrieved_results, consume_tokens

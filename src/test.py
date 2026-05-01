@@ -8,6 +8,7 @@ from datetime import datetime
 from deepsearcher.offline_loading import load_from_local_files
 from deepsearcher.online_query import query, naive_rag_query
 from deepsearcher.configuration import Configuration, init_config
+from deepsearcher import configuration 
 from deepsearcher.vector_db.generative_milvus import GenerativeRetrievalDB
 
 from dotenv import load_dotenv
