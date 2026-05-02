@@ -29,7 +29,7 @@ vllm_logger.addHandler(vllm_file_handler)
 # ------------------------------------------------------------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 workspace = os.path.dirname(current_dir)
-corpus_path = os.path.join(workspace, "data/corpus.jsonl")
+corpus_path = os.path.join(workspace, "data/corpus_with_ids.jsonl")
 dev_json_path = os.path.join(workspace, "data/2wiki/dev.json") # 2Wiki 官方 dev 集
 gr_model_path = os.path.join(workspace, "model/t5_base_gr")
 save_filename = os.path.join(workspace, "output/evaluation_results.json")
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     workspace = os.path.dirname(current_dir)
     dev_json_path = os.path.join(workspace, "data/2wiki/dev.json")
-    corpus_path = os.path.join(workspace, "data/corpus.jsonl")
+    corpus_path = os.path.join(workspace, "data/corpus_with_ids.jsonl")
     
     save_filename = os.path.join(workspace, "output/evaluation_results.json")
     invalid_log_file = os.path.join(workspace, "output/invalid_queries_log.json") # 新增排错日志路径
