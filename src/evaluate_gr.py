@@ -10,9 +10,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+from deepsearcher import configuration
 from deepsearcher.configuration import Configuration, init_config
 from deepsearcher.offline_loading import load_from_local_files
-from deepsearcher.online_query import naive_rag_query, query
 
 
 DEFAULT_TOP_K = (1, 5, 10)
@@ -51,7 +51,11 @@ def parse_args():
     default_output_dir = os.path.join(workspace, "output", timestamp)
 
     parser = argparse.ArgumentParser(description="Evaluate retrieval, QA, and token efficiency.")
-    parser.add_argument("--query-mode", choices=["agent_rag", "naive_rag"], default="naive_rag")
+    parser.add_argument(
+        "--query-mode",
+        choices=["deep_searcher", "chain_of_rag", "simple_searcher", "naive_rag"],
+        default="naive_rag",
+    )
     parser.add_argument("--retrieval-method", choices=["dr", "gr"], default="dr")
     parser.add_argument("--max-iter", type=int, default=1)
     parser.add_argument("--max-samples", type=int, default=200, help="Use 0 for full dataset.")
@@ -200,10 +204,10 @@ def evaluate(args):
         gold_docids = [title_to_docid[title] for title in gold_titles]
 
         try:
-            if args.query_mode == "agent_rag":
-                response = query(question, max_iter=args.max_iter)
-            else:
-                response = naive_rag_query(question)
+            searcher = getattr(configuration, args.query_mode)
+            if searcher is None:
+                raise ValueError(f"Searcher '{args.query_mode}' is not initialized.")
+            response = searcher.query(question, max_iter=args.max_iter)
 
             if not isinstance(response, tuple):
                 raise ValueError(f"Unexpected query response type: {type(response)}")

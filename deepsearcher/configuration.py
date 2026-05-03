@@ -183,6 +183,7 @@ default_searcher: RAGRouter = None
 deep_searcher: DeepSearch = None
 simple_searcher: SimpleSearch = None
 naive_rag: NaiveRAG = None
+chain_of_rag: ChainOfRAG = None
 
 
 def init_config(config: Configuration):
@@ -205,7 +206,8 @@ def init_config(config: Configuration):
         default_searcher, \
         deep_searcher, \
         simple_searcher, \
-        naive_rag
+        naive_rag, \
+        chain_of_rag
     module_factory = ModuleFactory(config)
     llm = module_factory.create_llm()
     embedding_model = module_factory.create_embedding()
@@ -235,6 +237,14 @@ def init_config(config: Configuration):
         ],
     )
     deep_searcher = DeepSearch(
+        llm=llm,
+        embedding_model=embedding_model,
+        vector_db=vector_db,
+        max_iter=config.query_settings["max_iter"],
+        route_collection=True,
+        text_window_splitter=True,
+    )
+    chain_of_rag = ChainOfRAG(
         llm=llm,
         embedding_model=embedding_model,
         vector_db=vector_db,
