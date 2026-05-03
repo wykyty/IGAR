@@ -55,11 +55,17 @@ def retrieve_top_k(model_path, corpus_file, queries, top_k=5):
     tokenizer = T5Tokenizer.from_pretrained(model_path)
     model = T5ForConditionalGeneration.from_pretrained(model_path).to(device)
     model.eval()
-
+    
     print("2. 加载 Corpus 并提取所有合法的 docid...")
+    corpus = []
+    valid_docids = []
     with open(corpus_file, 'r', encoding='utf-8') as f:
-        corpus = json.load(f)
-    valid_docids = [doc["docid"] for doc in corpus]
+        for line in f:
+            line = line.strip()
+            if line:
+                doc = json.loads(line)
+                corpus.append(doc)
+                valid_docids.append(doc["docid"])
     
     # 建立映射表，方便后续通过 docid 查原文
     docid_to_text = {doc["docid"]: doc["title"] for doc in corpus}
@@ -111,8 +117,8 @@ def retrieve_top_k(model_path, corpus_file, queries, top_k=5):
 
 if __name__ == "__main__":
     # 填入你刚才训练保存的模型路径
-    trained_model_dir = "./model/gr_t5_small_model_2" 
-    corpus_data_path = "./data/corpus_semantic_ids.json"
+    trained_model_dir = "./model/t5_large_gr" 
+    corpus_data_path = "./data/corpus_with_ids.json"
     
     # 测试一些新的 Query
     test_queries = [

@@ -1,0 +1,24 @@
+#!/bin/bash
+#SBATCH --job-name=dual_4090_train
+#SBATCH --partition=GPUNorm
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:2
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=64G
+#SBATCH --time=12:00:00
+#SBATCH --output=train_%j.log
+
+
+# 激活虚拟环境（根据你的实际路径调整）
+source ~/workspace/IGAR/.venv/bin/activate
+
+# 调试：看看Slurm给了你哪两张卡
+echo "=== Slurm GPU分配信息 ==="
+echo "CUDA_VISIBLE_DEVICES = $CUDA_VISIBLE_DEVICES"
+echo "========================"
+
+cd ~/workspace/IGAR
+# 使用 torchrun 启动双卡训练
+export HF_ENDPOINT=https://hf-mirror.com
+torchrun --standalone --nproc_per_node=2 src/train_gr.py
