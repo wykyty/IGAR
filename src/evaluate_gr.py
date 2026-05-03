@@ -51,16 +51,13 @@ def parse_args():
     default_output_dir = os.path.join(workspace, "output", timestamp)
 
     parser = argparse.ArgumentParser(description="Evaluate retrieval, QA, and token efficiency.")
-    parser.add_argument("--query-mode", choices=["rag", "naive_rag"], default="naive_rag")
+    parser.add_argument("--query-mode", choices=["agent_rag", "naive_rag"], default="naive_rag")
+    parser.add_argument("--retrieval-method", choices=["dr", "gr"], default="dr")
     parser.add_argument("--max-iter", type=int, default=1)
     parser.add_argument("--max-samples", type=int, default=200, help="Use 0 for full dataset.")
     parser.add_argument("--top-k", type=str, default="1,5,10")
     parser.add_argument("--reload-data", action="store_true")
-    parser.add_argument("--corpus-file", type=str, default=os.path.join(workspace, "data", "corpus_with_ids.jsonl"))
     parser.add_argument("--dev-file", type=str, default=os.path.join(workspace, "data", "2wiki", "dev.json"))
-    parser.add_argument("--output-dir", type=str, default=default_output_dir)
-    parser.add_argument("--output-file", type=str, default="")
-    parser.add_argument("--invalid-log-file", type=str, default="")
 
     args = parser.parse_args()
 
@@ -83,12 +80,15 @@ def parse_args():
 
     args.top_k_values = tuple(dict.fromkeys(top_k_values))
     args.max_samples = None if args.max_samples == 0 else args.max_samples
-    args.output_file = args.output_file or os.path.join(args.output_dir, "evaluation_results.json")
-    args.invalid_log_file = args.invalid_log_file or os.path.join(args.output_dir, "invalid_queries_log.json")
+    args.workspace = workspace
+    args.corpus_file = os.path.join(workspace, "data", "corpus_with_ids.jsonl")
+    args.output_dir = default_output_dir
+    args.output_file = os.path.join(default_output_dir, "evaluation_results.json")
+    args.invalid_log_file = os.path.join(default_output_dir, "invalid_queries_log.json")
     return args
 
 
-def setup_pipeline(corpus_file, reload_data=False):
+def setup_pipeline(args):
     load_dotenv()
     base_url = os.getenv("BASE_URL")
     api_key = os.getenv("API_KEY")
@@ -113,24 +113,43 @@ def setup_pipeline(corpus_file, reload_data=False):
         "api_key": api_key,
     })
     config.set_provider_config("embedding", "SentenceTransformerEmbedding", {
-        "model": "BAAI/bge-large-en-v1.5",
+        "model": "BAAI/bge-base-en-v1.5",
         "batch_size": 256,
     })
     config.set_provider_config("file_loader", "JsonFileLoader", {
         "text_key": "text",
         "id_key": "docid",
     })
+
+    if args.retrieval_method == "gr":
+        valid_doc_ids = []
+        with open(args.corpus_file, "r", encoding="utf-8") as f:
+            for line in f:
+                doc = json.loads(line)
+                docid = doc.get("docid")
+                if docid is not None:
+                    valid_doc_ids.append(str(docid))
+
+        config.set_provider_config("vector_db", "GenerativeRetrievalDB", {
+            "gr_model_path": os.path.join(args.workspace, "model", "t5_large_gr"),
+            "valid_doc_ids": list(dict.fromkeys(valid_doc_ids)),
+            "uri": "./milvus.db",
+            "token": "root:Milvus",
+            "default_collection": "wiki",
+        })
+
     init_config(config=config)
 
-    if reload_data:
-        print(f"Reloading corpus from: {corpus_file}")
+    if args.reload_data:
+        print(f"Reloading corpus from: {args.corpus_file}")
         load_from_local_files(
-            paths_or_directory=corpus_file,
+            paths_or_directory=args.corpus_file,
             collection_name="wiki",
             collection_description="2wiki corpus",
         )
     else:
         print("Skipping corpus reload. Using existing retrieval store state.")
+    print(f"Retrieval method: {args.retrieval_method}")
 
 
 def evaluate(args):
@@ -181,7 +200,7 @@ def evaluate(args):
         gold_docids = [title_to_docid[title] for title in gold_titles]
 
         try:
-            if args.query_mode == "rag":
+            if args.query_mode == "agent_rag":
                 response = query(question, max_iter=args.max_iter)
             else:
                 response = naive_rag_query(question)
@@ -332,7 +351,7 @@ def evaluate(args):
 
 def main():
     args = parse_args()
-    setup_pipeline(args.corpus_file, reload_data=args.reload_data)
+    setup_pipeline(args)
     evaluate(args)
 
 
