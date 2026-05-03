@@ -68,7 +68,8 @@ def retrieve_top_k(model_path, corpus_file, queries, top_k=5):
                 valid_docids.append(doc["docid"])
     
     # 建立映射表，方便后续通过 docid 查原文
-    docid_to_text = {doc["docid"]: doc["title"] for doc in corpus}
+    docid_to_title = {doc["docid"]: doc["title"] for doc in corpus}
+    docid_to_text = {doc["docid"]: doc["text"] for doc in corpus}
 
     print("3. 初始化受限解码 Trie 树...")
     trie = DocidTrie(tokenizer, valid_docids)
@@ -112,13 +113,14 @@ def retrieve_top_k(model_path, corpus_file, queries, top_k=5):
         print("-" * 40)
         for i, docid in enumerate(generated_docids):
             docid = docid.strip()
-            title = docid_to_text.get(docid, "⚠️ 未知文档 (这在开启受限解码后不应出现)")
-            print(f"Rank {i+1}: ID [{docid}] -> Title: {title}")
+            title = docid_to_title.get(docid, "⚠️ 未知文档 (这在开启受限解码后不应出现)")
+            text = docid_to_text.get(docid, "")
+            print(f"Rank {i+1}: ID [{docid}] -> Title: {title}\n Text: {text}\n")
 
 if __name__ == "__main__":
     # 填入你刚才训练保存的模型路径
     trained_model_dir = "./model/t5_large_gr" 
-    corpus_data_path = "./data/corpus_with_ids.json"
+    corpus_data_path = "./data/corpus_with_ids.jsonl"
     
     # 测试一些新的 Query
     test_queries = [
@@ -156,6 +158,7 @@ Rank 2: ID [4.5.9.1.0] -> Title: Edmund of Langley, 1st Duke of York
 Rank 3: ID [4.5.9.2.0] -> Title: Humphrey Stafford, 1st Earl of Devon
 
 
+
 Query: Which country the director of film One Law For The Woman is from?
 ----------------------------------------
 Rank 1: ID [6.4.5.2.0] -> Title: Sidney Olcott
@@ -166,5 +169,18 @@ Rank 2: ID [1.7.9.1.0] -> Title: Fernando Cortés
 
 Rank 3: ID [6.4.5.6.0] -> Title: Frank Lloyd
 "text": "Frank William George Lloyd( 2 February 1886 – 10 August 1960) was a British- born American film director, actor, scriptwriter, and producer. He was among the founders of the Academy of Motion Picture Arts and Sciences, and was its president from 1934 to 1935."
+
+
+
+Query: Which country the director of film One Law For The Woman is from?
+----------------------------------------
+Rank 1: ID [5.4.6.8.7.0.0] -> Title: The Veiled Woman
+ Text: The Veiled Woman is a 1929 American drama film directed by Emmett J. Flynn and starring Lia Torá and Walter McGrail.
+
+Rank 2: ID [5.4.6.8.7.4.0] -> Title: Swamp Woman
+ Text: Swamp Woman is a 1941 American film directed by Elmer Clifton.
+
+Rank 3: ID [5.6.4.2.6.4.0.0] -> Title: Attack of the 50 Ft. Woman (1993 film)
+ Text: Attack of the 50 Ft. Woman is a 1993 television film, it is a remake of the 1958 film of the same name. Directed by Christopher Guest and starring Daryl Hannah and Daniel Baldwin, the film premiered on HBO on December 11, 1993, and was later theatrically released in the United Kingdom, France and Germany.
 
 """

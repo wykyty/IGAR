@@ -32,42 +32,80 @@ from deepsearcher.vector_db.base import BaseVectorDB, deduplicate_results
 
 # prompt, 原来是生成list of strings
 # 现在让他指令化生成 list of dicts
-SUB_QUERY_PROMPT = """
-To answer this question comprehensively, break down the original question into specific sub-tasks. 
-For each sub-task, you must select the most appropriate "instruction" from the predefined list below and generate a corresponding "query".
+# SUB_QUERY_PROMPT = """
+# To answer this question comprehensively, break down the original question into specific sub-tasks. 
+# For each sub-task, you must select the most appropriate "instruction" from the predefined list below and generate a corresponding "query".
 
-### PREDEFINED INSTRUCTIONS:
-1. "Identify and retrieve specific financial performance data or key accounting metrics (e.g., revenue, net loss, R&D expenses) for a specific fiscal period." (Intent: financial_metric)
-2. "Retrieve documents containing vehicle delivery numbers, market share data, or production capacity information." (Intent: delivery_status)
-3. "Find sections describing potential business risks, regulatory challenges, or market uncertainties mentioned in the report." (Intent: risk_factor)
-4. "Locate descriptions of the company's future product roadmap, technology R&D plans (like AD Max/Pro), or long-term strategic visions." (Intent: strategic_goal)
+# ### PREDEFINED INSTRUCTIONS:
+# 1. "Identify and retrieve specific financial performance data or key accounting metrics (e.g., revenue, net loss, R&D expenses) for a specific fiscal period." (Intent: financial_metric)
+# 2. "Retrieve documents containing vehicle delivery numbers, market share data, or production capacity information." (Intent: delivery_status)
+# 3. "Find sections describing potential business risks, regulatory challenges, or market uncertainties mentioned in the report." (Intent: risk_factor)
+# 4. "Locate descriptions of the company's future product roadmap, technology R&D plans (like AD Max/Pro), or long-term strategic visions." (Intent: strategic_goal)
+
+# ### OUTPUT FORMAT:
+# Return a pure Python list of dictionaries. Each dictionary must contain:
+# - "instruction": One of the exact strings from the predefined list above.
+# - "query": A specific, concise search query to fulfill that sub-task.
+
+# Original Question: {original_query}
+
+# <EXAMPLE>
+# Input: "Analyze Li Auto's 2023 performance including its revenue, car deliveries, and future autonomous driving plans."
+# Output: [
+#     {{
+#         "instruction": "Identify and retrieve specific financial performance data or key accounting metrics (e.g., revenue, net loss, R&D expenses) for a specific fiscal period.",
+#         "query": "请查找理想汽车2023年年度收入和净利润的数据。"
+#     }},
+#     {{
+#         "instruction": "Retrieve documents containing vehicle delivery numbers, market share data, or production capacity information.",
+#         "query": "请提供理想汽车2023年汽车总交付量的数据。"
+#     }},
+#     {{
+#         "instruction": "Locate descriptions of the company's future product roadmap, technology R&D plans (like AD Max/Pro), or long-term strategic visions.",
+#         "query": "请查找理想汽车自动驾驶AD Max Pro的研发路线图。"
+#     }}
+# ]
+# </EXAMPLE>
+
+# Provide your response in pure python code list format:
+# """
+
+# Provide your response in pure python code list format:
+
+# """
+
+SUB_QUERY_PROMPT = """To answer this question comprehensively, please break down the original question into up to four specific sub-questions.
+For each sub-question, you must generate a dictionary containing a fixed instruction and the generated sub-query.
 
 ### OUTPUT FORMAT:
-Return a pure Python list of dictionaries. Each dictionary must contain:
-- "instruction": One of the exact strings from the predefined list above.
-- "query": A specific, concise search query to fulfill that sub-task.
+Return a pure Python list of dictionaries. Each dictionary must contain exactly two keys:
+- "instruction": This must ALWAYS be exactly the string: "Retrieve relevant document for the following query."
+- "query": The specific, concise sub-question you generated.
+If this is a very simple question and no decomposition is necessary, then keep the single original question in the list using the same dictionary format.
 
 Original Question: {original_query}
 
 <EXAMPLE>
-Input: "Analyze Li Auto's 2023 performance including its revenue, car deliveries, and future autonomous driving plans."
-Output: [
+Example input:
+"Explain deep learning"
+Example output:
+[
     {{
-        "instruction": "Identify and retrieve specific financial performance data or key accounting metrics (e.g., revenue, net loss, R&D expenses) for a specific fiscal period.",
-        "query": "请查找理想汽车2023年年度收入和净利润的数据。"
+        "instruction": "Retrieve relevant document for the following query.",
+        "query": "What is deep learning?"
     }},
     {{
-        "instruction": "Retrieve documents containing vehicle delivery numbers, market share data, or production capacity information.",
-        "query": "请提供理想汽车2023年汽车总交付量的数据。"
+        "instruction": "Retrieve relevant document for the following query.",
+        "query": "What is the difference between deep learning and machine learning?"
     }},
     {{
-        "instruction": "Locate descriptions of the company's future product roadmap, technology R&D plans (like AD Max/Pro), or long-term strategic visions.",
-        "query": "请查找理想汽车自动驾驶AD Max Pro的研发路线图。"
+        "instruction": "Retrieve relevant document for the following query.",
+        "query": "What is the history of deep learning?"
     }}
 ]
-</EXAMPLE>
 
-Provide your response in pure python code list format:
+</EXAMPLE>
+Provide your response in a pure python code list format:
 """
 
 RERANK_PROMPT = """Based on the query questions and the retrieved chunk, to determine whether the chunk is helpful in answering any of the query question, you can only return "YES" or "NO", without any other information.

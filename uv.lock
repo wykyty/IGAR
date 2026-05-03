@@ -1244,11 +1244,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'boto3'", specifier = ">=1.38.11" },
     { name = "crawl4ai", marker = "extra == 'all'", specifier = ">=0.6.2" },
     { name = "crawl4ai", marker = "extra == 'crawl4ai'", specifier = ">=0.6.2" },
-<<<<<<< Updated upstream
-    { name = "datasets", specifier = ">=4.8.5" },
-=======
     { name = "datasets", specifier = ">=4.8.4" },
->>>>>>> Stashed changes
     { name = "docling", marker = "extra == 'all'", specifier = ">=2.15.1" },
     { name = "docling", marker = "extra == 'docling'", specifier = ">=2.15.1" },
     { name = "docling-core", marker = "extra == 'all'", specifier = ">=2.30.0" },
