@@ -119,17 +119,18 @@ def retrieve_top_k(model_path, corpus_file, queries, top_k=5):
 
 if __name__ == "__main__":
     # 填入你刚才训练保存的模型路径
-    trained_model_dir = "./model/t5_large_gr" 
-    corpus_data_path = "./data/corpus_with_ids.jsonl"
+    trained_model_dir = "./model/t5_large_igar" 
+    corpus_data_path = "./data/corpus_with_ids.jsonl" 
     
     # 测试一些新的 Query
     test_queries = [
         # "Who was born later, Lisbeth Cathrine Amalie Rose or Princess Raiyah Bint Hussein?",
         # "When did the Battle of Lincoln happen?",
-        "Which country the director of film One Law For The Woman is from?"
+        # "Which country the director of film One Law For The Woman is from?",
+        "When did John V, Prince Of Anhalt-Zerbst's father die?"
     ]
     
-    retrieve_top_k(trained_model_dir, corpus_data_path, test_queries, top_k=3)
+    retrieve_top_k(trained_model_dir, corpus_data_path, test_queries, top_k=10)
 
 """
 1. 加载模型与分词器...
@@ -182,5 +183,26 @@ Rank 2: ID [5.4.6.8.7.4.0] -> Title: Swamp Woman
 
 Rank 3: ID [5.6.4.2.6.4.0.0] -> Title: Attack of the 50 Ft. Woman (1993 film)
  Text: Attack of the 50 Ft. Woman is a 1993 television film, it is a remake of the 1958 film of the same name. Directed by Christopher Guest and starring Daryl Hannah and Daniel Baldwin, the film premiered on HBO on December 11, 1993, and was later theatrically released in the United Kingdom, France and Germany.
+
+ 
+
+ 1. 加载模型与分词器...
+2. 加载 Corpus 并提取所有合法的 docid...
+3. 初始化受限解码 Trie 树...
+正在构建合法 DocID 的 Trie 树...
+
+4. 开始推理...
+
+Query: Which country the director of film One Law For The Woman is from?
+----------------------------------------
+Rank 1: ID [5.6.4.6.1.6.0] -> Title: One Law for the Woman
+ Text: One Law for the Woman is a 1924 American silent western film directed by Dell Henderson and starring Cullen Landis, Mildred Harris and Cecil Spooner.
+
+Rank 2: ID [5.4.5.2.3.1] -> Title: Dell Henderson
+ Text: George Delbert "Dell" Henderson (July 5, 1877 – December 2, 1956) was a Canadian-American actor, director, and writer. He began his long and prolific film career in the early days of silent film.
+
+Rank 3: ID [4.6.9.7.1.4.0] -> Title: J. Gordon Edwards
+ Text: James Gordon Edwards( June 24, 1867 – December 31, 1925) was an American film director, producer, and writer who began his career as a stage actor and stage director.
+
 
 """

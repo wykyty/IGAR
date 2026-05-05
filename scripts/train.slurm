@@ -25,4 +25,5 @@ export HF_ENDPOINT=https://hf-mirror.com
 
 # 使用 torchrun 启动六卡训练
 # nproc_per_node 必须与 --gres=gpu:N 中的 N 保持一致
-torchrun --nproc_per_node=2 src/train_gr.py
+# OMP_NUM_THREADS 限制 CPU 线程，避免底层的多线程冲突拖慢速度
+python src/train_gr.py
