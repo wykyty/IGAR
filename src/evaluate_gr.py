@@ -111,6 +111,11 @@ def setup_pipeline(args):
     vllm_logger.addHandler(handler)
 
     config = Configuration()
+    # config.set_provider_config("llm", "OpenAI", {
+    #     "model": model_name,
+    #     "base_url": base_url,
+    #     "api_key": api_key,
+    # })
     config.set_provider_config("llm", "OpenAI", {
         "model": model_name,
         "base_url": base_url,
@@ -134,7 +139,7 @@ def setup_pipeline(args):
                 if docid is not None:
                     valid_doc_ids.append(str(docid))
 
-        config.set_provider_config("vector_db", "GenerativeRetrievalDB", {
+        config.set_provider_config("vector_db", "ConstrainedGenerativeRetrievalDB", {
             "gr_model_path": os.path.join(args.workspace, "model", "t5_large_gr"),
             "valid_doc_ids": list(dict.fromkeys(valid_doc_ids)),
             "uri": "./milvus.db",

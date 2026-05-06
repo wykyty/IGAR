@@ -19,6 +19,7 @@ httpx_logger.setLevel(logging.WARNING)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 workspace = os.path.dirname(current_dir)
 data_path = os.path.join(workspace, "data/corpus_with_docidsv2.jsonl")
+gr_model_path = os.path.join(workspace, "model/t5_large_gr")
 # data_path = "/data/wyh/IGAR/examples/data/2wikimultihopqa_corpus.json"
 
 config = Configuration()  # Customize your config here
@@ -48,17 +49,11 @@ config.set_provider_config("file_loader", "JsonFileLoader", {
 # 配置 VectorDB
 valid_ids = load_valid_docids(data_path)
 
-new_valid_ids = [s.replace(" ", "-") for s in valid_ids]
-
-# print(f"{len(valid_ids)} : len valid_ids")
-# for ids in new_valid_ids:
-#     print(f"{ids}\n") 
 
 config.set_provider_config("vector_db", "GenerativeRetrievalDB", {
-    "api_url": "http://localhost:8001/v1/completions",
-    "valid_doc_ids": new_valid_ids,
+    "gr_model_path": gr_model_path,
+    "valid_doc_ids": valid_ids,
     "uri": "./milvus.db", 
-    "dim": 768,
     "token":"root:Milvus", 
     "default_collection": "deep"
 })

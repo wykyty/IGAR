@@ -108,7 +108,7 @@ def retrieve_top_k(model_path, corpus_file, queries, top_k=5):
 
         # 解码生成的 docids
         generated_docids = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        
+
         print(f"\nQuery: {query}")
         print("-" * 40)
         for i, docid in enumerate(generated_docids):

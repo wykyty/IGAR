@@ -7,6 +7,7 @@ SENTENCE_TRANSFORMER_MODEL_DIM_MAP = {
     "BAAI/bge-m3": 1024,
     "BAAI/bge-large-zh-v1.5": 1024,
     "BAAI/bge-large-en-v1.5": 1024,
+    "BAAI/bge-base-en-v1.5": 768,  # Added missing key with dimension
 }
 
 
